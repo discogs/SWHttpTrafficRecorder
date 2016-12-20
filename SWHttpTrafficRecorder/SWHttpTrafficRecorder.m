@@ -22,6 +22,8 @@
 
 //  Created by Jinlian (Sunny) Wang on 8/23/15.
 
+#import <objc/runtime.h>
+
 #import "SWHttpTrafficRecorder.h"
 
 NSString * const SWHTTPTrafficRecordingProgressRequestKey   = @"REQUEST_KEY";
@@ -41,6 +43,7 @@ NSString * const SWHttpTrafficRecorderErrorDomain           = @"RECORDER_ERROR_D
 @property(nonatomic, strong) NSURLSessionConfiguration *sessionConfig;
 @property(nonatomic, assign) NSUInteger runTimeStamp;
 @property(nonatomic, strong) NSDictionary *fileExtensionMapping;
+@property(nonatomic, strong) NSMutableArray<NSURLSessionConfiguration *> *defaultSessionConfigurations;
 @end
 
 @interface SWRecordingProtocol : NSURLProtocol @end
@@ -58,6 +61,7 @@ NSString * const SWHttpTrafficRecorderErrorDomain           = @"RECORDER_ERROR_D
         shared.fileCreationQueue = [[NSOperationQueue alloc] init];
         shared.runTimeStamp = 0;
         shared.recordingFormat = SWHTTPTrafficRecordingFormatMocktail;
+        shared.defaultSessionConfigurations = [[NSMutableArray alloc] init];
     });
     return shared;
 }
@@ -95,15 +99,18 @@ NSString * const SWHttpTrafficRecorderErrorDomain           = @"RECORDER_ERROR_D
 
         self.fileNo = 0;
         self.runTimeStamp = (NSUInteger)[NSDate timeIntervalSinceReferenceDate];
+    } else {
+        [self stopRecording];
     }
-    if(sessionConfig){
+
+    if (sessionConfig) {
+        [self registerConfiguration:sessionConfig];
         self.sessionConfig = sessionConfig;
-        NSMutableOrderedSet *mutableProtocols = [[NSMutableOrderedSet alloc] initWithArray:sessionConfig.protocolClasses];
-        [mutableProtocols insertObject:[SWRecordingProtocol class] atIndex:0];
-        sessionConfig.protocolClasses = [mutableProtocols array];
-    }
-    else {
+    } else {
         [NSURLProtocol registerClass:[SWRecordingProtocol class]];
+        for (NSURLSessionConfiguration *conf in self.defaultSessionConfigurations) {
+            [self registerConfiguration:conf];
+        }
     }
 
     self.isRecording = YES;
@@ -112,18 +119,32 @@ NSString * const SWHttpTrafficRecorderErrorDomain           = @"RECORDER_ERROR_D
 }
 
 - (void)stopRecording{
-    if(self.isRecording){
-        if(self.sessionConfig) {
-            NSMutableArray *mutableProtocols = [[NSMutableArray alloc] initWithArray:self.sessionConfig.protocolClasses];
-            [mutableProtocols removeObject:[SWRecordingProtocol class]];
-            self.sessionConfig.protocolClasses = mutableProtocols;
+    if (self.isRecording) {
+
+        if (self.sessionConfig) {
+            [self unregisterConfiguration:self.sessionConfig];
             self.sessionConfig = nil;
-        }
-        else {
+        } else {
             [NSURLProtocol unregisterClass:[SWRecordingProtocol class]];
+            for (NSURLSessionConfiguration *conf in self.defaultSessionConfigurations) {
+                [self unregisterConfiguration:conf];
+            }
         }
     }
+
     self.isRecording = NO;
+}
+
+- (void)registerConfiguration:(NSURLSessionConfiguration *)configuration {
+    NSMutableOrderedSet *mutableProtocols = [[NSMutableOrderedSet alloc] initWithArray:configuration.protocolClasses];
+    [mutableProtocols insertObject:[SWRecordingProtocol class] atIndex:0];
+    configuration.protocolClasses = [mutableProtocols array];
+}
+
+- (void)unregisterConfiguration:(NSURLSessionConfiguration *)configuration {
+    NSMutableArray *mutableProtocols = [[NSMutableArray alloc] initWithArray:configuration.protocolClasses];
+    [mutableProtocols removeObject:[SWRecordingProtocol class]];
+    configuration.protocolClasses = mutableProtocols;
 }
 
 - (int)increaseFileNo{
@@ -170,6 +191,9 @@ static NSString * const SWRecordingLProtocolHandledKey = @"SWRecordingLProtocolH
 + (BOOL)canInitWithRequest:(NSURLRequest *)request {
     BOOL isHTTP = [request.URL.scheme isEqualToString:@"https"] || [request.URL.scheme isEqualToString:@"http"];
     if ([NSURLProtocol propertyForKey:SWRecordingLProtocolHandledKey inRequest:request] || !isHTTP) {
+        return NO;
+    }
+    if (![SWHttpTrafficRecorder sharedRecorder].isRecording) {
         return NO;
     }
     
@@ -504,3 +528,47 @@ static NSString * const SWRecordingLProtocolHandledKey = @"SWRecordingLProtocolH
 }
 
 @end
+
+@interface NSURLSessionConfiguration (SWHttpTrafficRecorder) @end
+
+@implementation NSURLSessionConfiguration(SWHttpTrafficRecorder)
+
++ (void)load {
+    SEL originalSelector = @selector(defaultSessionConfiguration);
+    SEL swizzledSelector = @selector(sw_defaultSessionConfiguration);
+
+    Class class = object_getClass((id)self);
+
+    Method originalMethod = class_getClassMethod(class, originalSelector);
+    Method swizzledMethod = class_getClassMethod(class, swizzledSelector);
+
+    BOOL didAddMethod = class_addMethod(class,
+                                        originalSelector,
+                                        method_getImplementation(swizzledMethod),
+                                        method_getTypeEncoding(swizzledMethod));
+
+    if (didAddMethod) {
+        class_replaceMethod(class,
+                            swizzledSelector,
+                            method_getImplementation(originalMethod),
+                            method_getTypeEncoding(originalMethod));
+    } else {
+        method_exchangeImplementations(originalMethod, swizzledMethod);
+    }
+}
+
++ (NSURLSessionConfiguration *)sw_defaultSessionConfiguration {
+    NSURLSessionConfiguration *configuration = [self sw_defaultSessionConfiguration];
+
+    SWHttpTrafficRecorder *recorder = [SWHttpTrafficRecorder sharedRecorder];
+    [recorder.defaultSessionConfigurations addObject:configuration];
+
+    if (!recorder.sessionConfig && recorder.isRecording) {
+        [recorder registerConfiguration:configuration];
+    }
+
+    return configuration;
+}
+
+@end
+
