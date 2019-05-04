@@ -24,6 +24,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 //! Project version number for SWHttpTrafficRecorder.
 FOUNDATION_EXPORT double SWHttpTrafficRecorderVersionNumber;
 
@@ -45,7 +47,7 @@ typedef NS_ENUM(NSInteger, SWHTTPTrafficRecordingFormat) {
     
     /* For HTTPMessage format, the recorder creates a recorded file for each request and its response in format can be deserialized into a CFHTTPMessageRef raw HTTP Message. 'curl -is' also outputs in this format. */
     SWHTTPTrafficRecordingFormatHTTPMessage = 3
-};
+} NS_SWIFT_NAME(HttpTrafficRecorder.Format);
 
 /**
  * Error codes for SWHttpTrafficRecorder.
@@ -55,7 +57,7 @@ typedef NS_ENUM(NSInteger, SWHttpTrafficRecorderError) {
     SWHttpTrafficRecorderErrorPathFailedToCreate = 1,
     /** The specified path was not writable */
     SWHttpTrafficRecorderErrorPathNotWritable
-};
+} NS_SWIFT_NAME(HttpTrafficRecorder.Error);
 
 /**
  * Recording progress that is reported by SWHttpTrafficRecorder at each phase of recording a request and its response.
@@ -81,31 +83,32 @@ typedef NS_ENUM(NSInteger, SWHTTPTrafficRecordingProgressKind) {
     
     /* The recorder fails to record the response for a request for whatever reason. */
     SWHTTPTrafficRecordingProgressFailedToRecord = 7
-};
+} NS_SWIFT_NAME(HttpTrafficRecorder.Kind);
 
 /* The key in a recording progress info dictionary whose value indicates the current NSURLRequest that is being recorded.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressRequestKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressRequestKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressRequestKey);
 
 /* The key in a recording progress info dictionary whose value indicates the current NSHTTPURLResponse that is being recorded.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressResponseKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressResponseKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressResponseKey);
 
 /* The key in a recording progress info dictionary whose value indicates the current NSData response body that is being recorded.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressBodyDataKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressBodyDataKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressBodyDataKey);
 
 /* The key in a recording progress info dictionary whose value indicates the current file path that is used for the recorded file.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressFilePathKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressFilePathKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressFilePathKey);
 
 /* The key in a recording progress info dictionary whose value indicates the current recording format.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressFileFormatKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressFileFormatKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressFileFormatKey);
 
 /* The key in a recording progress info dictionary whose value indicates the NSErrror which fails the recording.*/
-FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressErrorKey;
+FOUNDATION_EXPORT NSString * const SWHTTPTrafficRecordingProgressErrorKey NS_SWIFT_NAME(HttpTrafficRecorder.ProgressErrorKey);
 
 /* The error domain for SWHttpTrafficRecorder. */
-FOUNDATION_EXPORT NSString * const SWHttpTrafficRecorderErrorDomain;
+FOUNDATION_EXPORT NSString * const SWHttpTrafficRecorderErrorDomain NS_SWIFT_NAME(HttpTrafficRecorder.ErrorDomain);
 
 /** An optional delegate SWHttpTrafficRecorder uses to report its recording progress.
  */
+NS_SWIFT_NAME(HttpTrafficRecorderProgressDelegate)
 @protocol SWHttpTrafficRecordingProgressDelegate <NSObject>
 
 /**
@@ -120,24 +123,25 @@ FOUNDATION_EXPORT NSString * const SWHttpTrafficRecorderErrorDomain;
 /**
  * An SWHttpTrafficRecorder lets you intercepts the http requests made by an application and records their responses in a specified format. There are three built-in formats supported: ResponseBodyOnly, Mocktail and HTTPMessage. These formats are widely used by various mocking/stubbing frameworks such as Mocktail(https://github.com/puls/objc-mocktail), OHHTTPStubs(https://github.com/AliSoftware/OHHTTPStubs/tree/master/OHHTTPStubs), Nocilla(https://github.com/luisobo/Nocilla), etc. You can also use it to monitor the traffic for debugging purpose.
  */
+NS_SWIFT_NAME(HttpTrafficRecorder)
 @interface SWHttpTrafficRecorder : NSObject
 
 /**
  * Returns the shared recorder object.
  */
-+ (instancetype)sharedRecorder;
+@property (class, nonatomic, readonly) SWHttpTrafficRecorder *sharedRecorder NS_SWIFT_NAME(shared);
 
 /**
  *  Method to start recording using default path.
  */
-- (BOOL)startRecording;
+- (BOOL)startRecording NS_SWIFT_NAME(start());
 
 /**
  *  Method to start recording and saves recorded files at a specified location.
  *  @param path The path where recorded files are saved.
  *  @param error An out value that returns any error encountered while accessing the recordingPath. Returns an NSError object if any error; otherwise returns nil.
  */
-- (BOOL)startRecordingAtPath:(NSString *)recordingPath error:(NSError **) error;
+- (BOOL)startRecordingAtPath:(nullable NSString *)recordingPath error:(NSError * _Nullable *)error NS_SWIFT_NAME(start(recordingAt:));
 
 /**
  *  Method to start recording and saves recorded files at a specified location using given session configuration.
@@ -145,12 +149,12 @@ FOUNDATION_EXPORT NSString * const SWHttpTrafficRecorderErrorDomain;
  *  @param sessionConfig The NSURLSessionConfiguration which will be modified.
  *  @param error An out value that returns any error encountered while accessing the recordingPath. Returns an NSError object if any error; otherwise returns nil.
  */
-- (BOOL)startRecordingAtPath:(NSString *)recordingPath forSessionConfiguration:(NSURLSessionConfiguration *)sessionConfig error:(NSError **) error;
+- (BOOL)startRecordingAtPath:(nullable NSString *)recordingPath forSessionConfiguration:(nullable NSURLSessionConfiguration *)sessionConfig error:(NSError * _Nullable *)error NS_SWIFT_NAME(start(recordingAt:sessionConfiguration:));
 
 /**
  *  Method to stop recording.
  */
-- (void)stopRecording;
+- (void)stopRecording NS_SWIFT_NAME(stop());
 
 /**
  *  A Boolean value which indicates whether the recording is recording traffic.
@@ -165,36 +169,41 @@ FOUNDATION_EXPORT NSString * const SWHttpTrafficRecorderErrorDomain;
 /**
  *  A Dictionary containing Regex/Token pairs for replacement in response data
  */
-@property(nonatomic, assign) NSMutableDictionary *replacementDict;
+@property(nonatomic, strong, nullable) NSMutableDictionary *replacementDict;
 
 /**
  *  The delegate where the recording progress are reported. 
  */
-@property(nonatomic, assign) id<SWHttpTrafficRecordingProgressDelegate> progressDelegate;
+@property(nonatomic, weak, nullable) id<SWHttpTrafficRecordingProgressDelegate> progressDelegate;
 
 /**
  *  The optional block (if provided) to be applied to every request to determine whether the request shall be recorded by the recorder. It takes a NSURLRequest as parameter and returns a Boolean value that indicates whether the request shall be recorded.
  */
-@property(nonatomic, copy) BOOL(^recordingTestBlock)(NSURLRequest *request);
+@property(nonatomic, copy, nullable) BOOL(^recordingTestBlock)(NSURLRequest *request) NS_SWIFT_NAME(recording);
 
 /**
  *  The optional block (if provided) to be applied to every request to determine whether the response body shall be base64 encodes before recording. It takes a NSURLRequest as parameter and returns a Boolean value that indicates whether the response body shall be base64 encoded.
  */
-@property(nonatomic, copy) BOOL(^base64TestBlock)(NSURLRequest *request, NSURLResponse *response);
+@property(nonatomic, copy, nullable) BOOL(^base64TestBlock)(NSURLRequest *request, NSURLResponse *response) NS_SWIFT_NAME(recordingBase64);
 
 /**
  *  The optional block (if provided) to be applied to every request to determine what file name is to be used while creating the recorded file. It takes a NSURLRequest and a default name that is generated by the recorder as parameters and returns a NSString value which is used as filename while creating the recorded file.
  */
-@property(nonatomic, copy) NSString*(^fileNamingBlock)(NSURLRequest *request, NSURLResponse *response, NSString *defaultName);
+@property(nonatomic, copy, nullable) NSString*(^fileNamingBlock)(NSURLRequest *request, NSURLResponse *response, NSString *defaultName) NS_SWIFT_NAME(renameFile);
 
 /**
  *  The optional block (if provided) to be applied to every request to determine what regular expression is to be used while creating a recorded file of Mocktail format. It takes a NSURLRequest and a default regular expression pattern that is generated by the recorder as parameters and returns a NSString value which is used as the regular expression pattern while creating the recorded file.
  */
-@property(nonatomic, copy) NSString*(^urlRegexPatternBlock)(NSURLRequest *request, NSString *defaultPattern);
+@property(nonatomic, copy, nullable) NSString*(^urlRegexPatternBlock)(NSURLRequest *request, NSString *defaultPattern) NS_SWIFT_NAME(regexPattern);
 
 /**
  *  The optional block (if provided) to be applied to every request to create the recorded file when the recording format is custom. It takes a NSURLRequest, its response, a body data and a filePath as parameters and be expected to create the recorded file at the filePath.
  */
-@property(nonatomic, copy) NSString*(^createFileInCustomFormatBlock)(NSURLRequest *request, NSURLResponse *response, NSData *bodyData, NSString *filePath);
+@property(nonatomic, copy, nullable) NSString*(^createFileInCustomFormatBlock)(NSURLRequest *request, NSURLResponse *response, NSData *bodyData, NSString *filePath) NS_SWIFT_NAME(customFormat);
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
 
 @end
+
+NS_ASSUME_NONNULL_END
